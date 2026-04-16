@@ -1,0 +1,32 @@
+SUMMARY
+Adaptable and proactive developer with a diverse background in Python, Java, and MERN stack. Known for strong
+problem-solving skills and effective project planning, prepared to deliver innovative solutions in web development.
+SKILLS
+• Python • Django
+• Machine Learning • Docker
+• Flask • HTML
+• CSS • Javascript
+• MERN • ReactJS
+• NodeJS • NextJS
+• AngularJS • ExpressJS
+• VueJS • PHP
+• SQL • MongoDB
+• REST API • FastAPI
+• ChatGPT • Cursor(GenAI)
+• Gemini • LLMOps
+• Problem Solving • Project Planning
+• Multitasking & Adaptability
+EDUCATION AND TRAINING
+Hindustan College of Science and Technology
+Fareh, Mathura
+B.Tech – Information Technology
+Expected: 06/2027
+CGPA: 7.96 (up to 2nd Year)
+Projects and Research:
+Live Emotion Detection System
+Animal Species Classification Model using AI
+Email Spam Classification Model
+Currently working on Nova AI Assistant
+LANGU
+AGES
+English: Proficient (C2) Hindi: Native
