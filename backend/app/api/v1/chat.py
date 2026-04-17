@@ -7,6 +7,7 @@ import uuid
 from dataclasses import asdict
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.ext.asyncio import AsyncSession
 import time
 
@@ -42,8 +43,8 @@ def _get_embedder():
 def _get_llm_service():
     global _llm_service
     if _llm_service is None:
-        # Prefer Groq settings as requested, fallback to OpenAI if needed
-        api_key = getattr(settings, "GROQ_API_KEY", "") or getattr(settings, "OPENAI_API_KEY", "")
+        # Prefer LLM_API_KEY as requested, fallback to others
+        api_key = getattr(settings, "LLM_API_KEY", "") or getattr(settings, "GROQ_API_KEY", "") or getattr(settings, "OPENAI_API_KEY", "")
         base_url = getattr(settings, "LLM_BASE_URL", None)
         model = getattr(settings, "LLM_MODEL", "llama3-70b-8192")
 
@@ -97,7 +98,8 @@ async def chat_query(
     try:
         if request.use_agent:
             agent = _get_agent()
-            result = agent.run(
+            result = await run_in_threadpool(
+                agent.run,
                 query=request.query,
                 workspace_id=request.workspace_id,
             )
@@ -117,7 +119,8 @@ async def chat_query(
             )
         else:
             pipeline = _get_rag_pipeline()
-            result = pipeline.execute(
+            result = await run_in_threadpool(
+                pipeline.execute,
                 query=request.query,
                 workspace_id=request.workspace_id,
                 source_type_filter=request.source_type_filter,
@@ -170,7 +173,7 @@ async def chat_query_stream(
             pipeline = _get_rag_pipeline()
 
             t = time.perf_counter()
-            classification = pipeline.classifier.classify(request.query)
+            classification = await run_in_threadpool(pipeline.classifier.classify, request.query)
             logger.info(
                 "TIMING | Classification: %.2f ms",
                 (time.perf_counter() - t) * 1000
@@ -178,7 +181,8 @@ async def chat_query_stream(
             yield f"data: {json.dumps({'type': 'classification', 'data': {'intent': classification['intent'].value, 'sources': classification['target_sources']}})}\n\n"
 
             t = time.perf_counter()
-            results = pipeline.retriever.retrieve(
+            results = await run_in_threadpool(
+                pipeline.retriever.retrieve,
                 query=request.query,
                 workspace_id=request.workspace_id,
                 top_k=20,
@@ -193,7 +197,8 @@ async def chat_query_stream(
             yield f"data: {json.dumps({'type': 'retrieval', 'data': {'count': len(results)}})}\n\n"
 
             t = time.perf_counter()
-            reranked = pipeline.reranker.rerank(
+            reranked = await run_in_threadpool(
+                pipeline.reranker.rerank,
                 query=request.query,
                 results=results,
                 top_k=10
@@ -204,8 +209,8 @@ async def chat_query_stream(
             )
 
             t = time.perf_counter()
-            compressed = pipeline.compressor.compress(reranked)
-            context_text = pipeline.compressor.format_context(compressed)
+            compressed = await run_in_threadpool(pipeline.compressor.compress, reranked)
+            context_text = await run_in_threadpool(pipeline.compressor.format_context, compressed)
             logger.info(
                 "TIMING | Compression: %.2f ms | Context chars=%d",
                 (time.perf_counter() - t) * 1000,

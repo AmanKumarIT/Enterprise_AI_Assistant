@@ -1,5 +1,5 @@
-from typing import Any, Dict, Optional
-from pydantic import PostgresDsn, field_validator
+from typing import Any, Dict, Optional, List, Union
+from pydantic import PostgresDsn, field_validator, AnyHttpUrl, validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic_core.core_schema import ValidationInfo
 
@@ -10,6 +10,15 @@ class Settings(BaseSettings):
     # SECURITY WARNING: keep the secret key used in production secret!
     SECRET_KEY: str = "your-supper-secret-key-that-should-be-changed"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 days
+    BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = []
+    
+    @field_validator("BACKEND_CORS_ORIGINS", mode="before")
+    def assemble_cors_origins(cls, v: Union[str, List[str]]) -> Union[List[str], str]:
+        if isinstance(v, str) and not v.startswith("["):
+            return [i.strip() for i in v.split(",")]
+        elif isinstance(v, (list, str)):
+            return v
+        raise ValueError(v)
     
     # POSTGRES
     POSTGRES_SERVER: Optional[str] = "localhost"
@@ -17,6 +26,8 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: Optional[str] = "postgres"
     POSTGRES_DB: Optional[str] = "eka_db"
     POSTGRES_PORT: int = 5432
+    DATABASE_URL: Optional[str] = None
+    DB_USE_SSL: bool = False
     SQLALCHEMY_DATABASE_URI: Optional[str] = None
 
     @field_validator("SQLALCHEMY_DATABASE_URI", mode="before")
@@ -25,6 +36,14 @@ class Settings(BaseSettings):
             return v
         values = info.data
         
+        db_url = values.get("DATABASE_URL")
+        if db_url:
+            if db_url.startswith("postgres://"):
+                return db_url.replace("postgres://", "postgresql+asyncpg://", 1)
+            elif db_url.startswith("postgresql://"):
+                return db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+            return db_url
+            
         # If any of the essential components are missing, return None
         if not all([values.get("POSTGRES_USER"), values.get("POSTGRES_SERVER")]):
             return None
@@ -52,6 +71,7 @@ class Settings(BaseSettings):
     QDRANT_API_KEY: Optional[str] = None
 
     # LLM
+    LLM_API_KEY: str = ""
     OPENAI_API_KEY: str = ""
     GROQ_API_KEY: str = ""
     LLM_MODEL: str = "llama3-70b-8192"
